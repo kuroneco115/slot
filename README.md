@@ -1,27 +1,29 @@
-# INFLATION MACHINE 🎰
+# INFLATION MACHINE 🎰⚡
 
-スロットを回してゲーム内通貨 `ENERGY` を増やし、強化を重ねて数字をインフレさせていく作業ゲームです。
+スロットだけではなく、**作業・自動工場・研究・ランダムイベント・ミッション・実績・転生**を組み合わせたインフレ系アイドルゲームです。
 
-## Features
-- スロット式のランダム報酬
-- Jackpot / Match ボーナス
-- POWER強化
-- AUTO MACHINE
-- LUCK強化
-- CORE RESET（転生）
-- LocalStorageによる自動セーブ
-- スマホ対応
-- GitHub Pages対応
+## 主な要素
+- 🎰 スロット：MATCH / JACKPOT / CRITICAL
+- ⚡ WORK：画面をタップして手動生産
+- 🏭 FACTORY：自動生産マシンを購入
+- 🧪 RESEARCH：Coreを使って恒久強化
+- 🌩️ RANDOM EVENT：一定時間だけ生産量が爆発的に増加
+- 📜 MISSIONS：目標達成で進行
+- 🏆 ACHIEVEMENTS：プレイ実績を収集
+- 🔄 CORE RESET：転生して永続的に強くなる
+- 💾 LocalStorage自動セーブ
+- 💤 オフライン中の自動生産
+- ✨ リール・数字・パーティクル・フローティングテキストなどの演出
+- 📱 スマホ対応
 
 ## GitHub Pages
-1. GitHubで新しいPublicリポジトリを作成
-2. このフォルダ内のファイルをアップロード
+1. GitHubでリポジトリを開く
+2. `index.html` / `style.css` / `script.js` / `README.md` をルートに置く
 3. `Settings` → `Pages`
-4. Sourceを `Deploy from a branch`
-5. Branchを `main` / `/ (root)` に設定
-6. Save
+4. `Deploy from a branch`
+5. `main` / `/ (root)` を選択して保存
 
-数分後に公開ページが生成されます。
+このゲームはブラウザだけで動き、外部ライブラリは使用していません。
 
 ## License
 MIT

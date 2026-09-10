@@ -1,35 +1,50 @@
-const initial={energy:0,core:0,mult:1,auto:0,luck:0};
-let s=JSON.parse(localStorage.getItem("inflationMachine")||"null")||initial;
-const $=id=>document.getElementById(id);
-const save=()=>localStorage.setItem("inflationMachine",JSON.stringify(s));
-function fmt(n){if(!Number.isFinite(n))return "∞"; if(n<1000)return Math.floor(n).toLocaleString(); const units=["","K","M","B","T","Qa","Qi","Sx","Sp","Oc","No"];let i=0;while(n>=1000&&i<units.length-1){n/=1000;i++}return n>=100?n.toFixed(0)+units[i]:n>=10?n.toFixed(1)+units[i]:n.toFixed(2)+units[i]}
-function perSpin(){return 10*s.mult}
-function powerCost(){return 100*Math.pow(10,s.mult/2-0.5)}
-function autoCost(){return 1000*Math.pow(3,s.auto)}
-function luckCost(){return 10000*Math.pow(5,s.luck/5)}
-function coreNeed(){return 1e6*Math.pow(100,s.core)}
+const KEY='inflationMachine_v2';
+const defaults={energy:0,core:0,level:1,xp:0,mult:1,workLevel:0,auto:0,luck:0,streak:0,totalSpins:0,totalEarned:0,totalWork:0,jackpots:0,eventUntil:0,eventMult:1,eventName:'',missions:{},achievements:{},last:Date.now()};
+let s=Object.assign({},defaults,JSON.parse(localStorage.getItem(KEY)||'{}'));
+const $=id=>document.getElementById(id); const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+function save(){s.last=Date.now();localStorage.setItem(KEY,JSON.stringify(s))}
+function fmt(n){if(!Number.isFinite(n))return '∞';if(n<1000)return Math.floor(n).toLocaleString();if(n<1e6)return (n/1e3).toFixed(n<1e4?1:0)+'K';if(n<1e9)return (n/1e6).toFixed(n<1e7?1:0)+'M';if(n<1e12)return (n/1e9).toFixed(n<1e10?1:0)+'B';if(n<1e15)return (n/1e12).toFixed(n<1e13?1:0)+'T';if(n<1e18)return (n/1e15).toFixed(1)+'Qa';return n.toExponential(2).replace('+','')}
+function power(){return 5*Math.pow(2,s.workLevel)*Math.pow(3,s.core)*Math.pow(2,s.mult-1)}
+function spinPower(){return 10*Math.pow(2,s.mult-1)*Math.pow(3,s.core)*(1+s.luck*.05)*s.eventMult}
+function income(){return s.auto*spinPower()*0.6}
+const quick=[['work','WORK POWER','Manual generation ×2','workLevel',50,'workLevel'],['mult','SLOT POWER','Spin reward ×2','mult',120,'mult'],['luck','LUCK','Jackpot chance +5%','luck',500,'luck']];
+const machines=[['auto','MICRO DRONE','Generates ENERGY every second',1000],['auto2','ASSEMBLER','Advanced automatic production',15000],['auto3','REACTOR','Huge passive output',250000],['auto4','DYSON CORE','Ridiculous production',5000000]];
+const research=[['corePower','CORE AMPLIFIER','Core permanently boosts all income +25%',1],['event','EVENT CONTROL','Random events last 50% longer',2],['critical','CRITICAL ENGINE','Small chance for x50 payout',5],['overdrive','OVERDRIVE','All production ×10',10]];
+let r={corePower:0,event:0,critical:0,overdrive:0}; Object.assign(r,s.research||{}); s.research=r;
+function costQuick(type){if(type==='work')return 50*Math.pow(4,s.workLevel);if(type==='mult')return 120*Math.pow(6,s.mult-1);return 500*Math.pow(8,s.luck)}
+function machineCost(i){return machines[i][3]*Math.pow(4,s.auto)}
+function researchCost(i){let key=research[i][0];return research[i][3]*Math.pow(3,r[key])}
+function researchMult(){return Math.pow(1.25,r.corePower)*Math.pow(10,r.overdrive)}
+function gain(amount,source=''){let old=s.level;s.energy=Math.min(1e300,s.energy+amount);s.totalEarned+=amount;addXP(Math.max(1,Math.log10(Math.max(10,amount))*2));if(s.level>old)toast('LEVEL UP! LV.'+s.level);save()}
+function addXP(x){s.xp+=x;while(s.xp>=100*s.level){s.xp-=100*s.level;s.level++}}
+function floatText(text,x,y){let e=document.createElement('div');e.className='float';e.textContent=text;e.style.left=x+'px';e.style.top=y+'px';document.body.appendChild(e);setTimeout(()=>e.remove(),900)}
+function burst(x,y){for(let i=0;i<10;i++){let e=document.createElement('div');e.className='burst';e.textContent=['✦','✧','+','⚡'][i%4];e.style.left=x+'px';e.style.top=y+'px';e.style.setProperty('--x',(Math.random()*160-80)+'px');e.style.setProperty('--y',(Math.random()*-130-20)+'px');document.body.appendChild(e);setTimeout(()=>e.remove(),700)}}
+function toast(t){let old=$('toast');old.textContent=t;old.className='toast';clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>old.className='',1800)}
+function spin(){let btn=$('spinBtn');if(btn.disabled)return;btn.disabled=true;s.totalSpins++;const vals=['7','★','◆','●','1','∞','♛','☄'];const reels=[$('r1'),$('r2'),$('r3')];reels.forEach(x=>x.classList.add('spin'));let n=0;let timer=setInterval(()=>{reels.forEach(x=>x.textContent=vals[Math.floor(Math.random()*vals.length)]);if(++n>=7){clearInterval(timer);finishSpin(reels);}},70)}
+function finishSpin(reels){const vals=reels.map(x=>x.textContent);let reward=spinPower();let text='INFLATION +'+fmt(reward);let mult=1;if(vals[0]===vals[1]&&vals[1]===vals[2]){mult=10;s.jackpots++;s.streak++;text='JACKPOT ×10  +'+fmt(reward*10);document.querySelector('.machine').classList.add('jackpot');burst(innerWidth/2,innerHeight*.35);toast('JACKPOT!')}else if(vals[0]===vals[1]||vals[1]===vals[2]||vals[0]===vals[2]){mult=2;s.streak++;text='MATCH ×2  +'+fmt(reward*2)}else{s.streak=0}
+if(Math.random()<s.luck*.05){mult*=5;text='LUCKY CRITICAL ×'+mult+'  +'+fmt(reward*mult);toast('CRITICAL!')}
+if(r.critical&&Math.random()<.01* r.critical){mult*=50;text='CRITICAL ENGINE ×50  +'+fmt(reward*mult);toast('ULTRA CRITICAL!')}
+reward*=mult; gain(reward);reels.forEach(x=>{x.classList.remove('spin');x.classList.add('win');setTimeout(()=>x.classList.remove('win'),550)});$('message').textContent=text;$('streak').textContent='STREAK '+s.streak;document.querySelector('.machine').classList.add('flash');setTimeout(()=>document.querySelector('.machine').classList.remove('flash','jackpot'),550);spawnMission('spin');render();$('spinBtn').disabled=false}
+function work(e){let amount=power()*researchMult();gain(amount,'work');s.totalWork++;floatText('+'+fmt(amount),e.clientX,e.clientY);burst(e.clientX,e.clientY);spawnMission('work');render()}
+function buyQuick(type){let c=costQuick(type);if(s.energy<c)return; s.energy-=c;if(type==='work')s.workLevel++;if(type==='mult')s.mult++;if(type==='luck')s.luck++;save();toast('UPGRADE PURCHASED');render()}
+function buyMachine(i){let c=machineCost(i);if(s.energy<c)return;s.energy-=c;s.auto+=i===0?1:i===1?5:i===2?25:100;save();toast('FACTORY ONLINE');render()}
+function buyResearch(i){let key=research[i][0],c=researchCost(i);if(s.core<c)return;s.core-=c;r[key]++;s.research=r;save();toast('RESEARCH COMPLETE');render()}
+function resetCore(){let need=1e6*Math.pow(100,s.core);if(s.energy<need)return;let gainCore=Math.max(1,Math.floor(Math.log10(s.energy)/2));s.energy=0;s.core+=gainCore;s.auto=0;s.workLevel=0;s.mult=1;s.luck=0;save();toast('CORE ASCENSION +'+gainCore);render()}
+function eventTick(){let now=Date.now();if(now>s.eventUntil){if(s.eventMult!==1){s.eventMult=1;s.eventName='';}if(Math.random()<.015){s.eventMult=[3,5,10,25][Math.floor(Math.random()*4)];s.eventName=['ENERGY RAIN','OVERCLOCK','MACHINE FRENZY','DIMENSION BREAK'][Math.floor(Math.random()*4)];s.eventUntil=now+(30000*(1+r.event*.5));toast(s.eventName+' ×'+s.eventMult);burst(innerWidth/2,200)}}}
 function render(){
- $("energy").textContent=fmt(s.energy); $("perSpin").textContent=fmt(perSpin()); $("core").textContent=fmt(s.core);
- $("powerCost").textContent=fmt(powerCost()); $("autoCost").textContent=fmt(autoCost()); $("luckCost").textContent=fmt(luckCost()); $("coreNeed").textContent=fmt(coreNeed());
- $("income").textContent=fmt(s.auto*perSpin())+" / sec";
- $("powerBtn").disabled=s.energy<powerCost(); $("autoBtn").disabled=s.energy<autoCost(); $("luckBtn").disabled=s.energy<luckCost(); $("coreBtn").disabled=s.energy<coreNeed();
-}
-function spin(){
- const vals=["7","★","◆","●","1","∞","♛","$"]; let a=[];
- for(let i=0;i<3;i++)a.push(vals[Math.floor(Math.random()*vals.length)]);
- ["r1","r2","r3"].forEach((id,i)=>$(id).textContent=a[i]);
- let reward=perSpin();
- if(a[0]===a[1]&&a[1]===a[2]){reward*=10; $("message").textContent="JACKPOT ×10!"}
- else if(a[0]===a[1]||a[1]===a[2]||a[0]===a[2]){reward*=2; $("message").textContent="MATCH ×2"}
- else $("message").textContent="INFLATION +"+fmt(reward);
- if(Math.random()<s.luck/100) reward*=2;
- s.energy+=reward; save(); render();
-}
-$("spinBtn").onclick=spin;
-$("powerBtn").onclick=()=>{let c=powerCost();if(s.energy>=c){s.energy-=c;s.mult*=2;save();render()}};
-$("autoBtn").onclick=()=>{let c=autoCost();if(s.energy>=c){s.energy-=c;s.auto++;save();render()}};
-$("luckBtn").onclick=()=>{let c=luckCost();if(s.energy>=c){s.energy-=c;s.luck+=5;save();render()}};
-$("coreBtn").onclick=()=>{let n=coreNeed();if(s.energy>=n){s.energy=0;s.core++;s.mult*=3;s.auto=0;s.luck=Math.min(50,s.luck);save();render();$("message").textContent="CORE ASCENDED ×3 POWER!"}};
-$("resetBtn").onclick=()=>{if(confirm("データを完全にリセットしますか？")){s={...initial};save();render()}};
-setInterval(()=>{if(s.auto>0){s.energy+=s.auto*perSpin();save();render()}},1000);
+$('energy').textContent=fmt(s.energy);$('core').textContent=fmt(s.core);$('level').textContent=s.level;$('xpText').textContent=fmt(s.xp)+' / '+fmt(100*s.level)+' XP';$('rate').textContent=fmt(income()*researchMult())+' / sec';$('workPower').textContent=fmt(power()*researchMult());$('streak').textContent='STREAK '+s.streak;
+let bar=clamp((s.energy%1000)/10,0,100);$('energyBar').style.width=bar+'%';
+$('quickUpgrades').innerHTML=quick.map(([type,name,desc])=>`<button class="buy" onclick="buyQuick('${type}')" ${s.energy<costQuick(type)?'disabled':''}><span><b>${name}</b><small>${desc}</small></span><strong>${fmt(costQuick(type))}</strong></button>`).join('');
+$('factoryCards').innerHTML=machines.map((m,i)=>`<button class="buy" onclick="buyMachine(${i})" ${s.energy<machineCost(i)?'disabled':''}><span><b>${m[1]}</b><small>${m[2]}<br>Owned output scales with factory.</small></span><strong>${fmt(machineCost(i))}</strong></button>`).join('')+`<button class="buy" onclick="resetCore()" ${s.energy<1e6*Math.pow(100,s.core)?'disabled':''}><span><b>CORE RESET</b><small>Reset Energy and normal machines for permanent Core.</small></span><strong>${fmt(1e6*Math.pow(100,s.core))}</strong></button>`;
+$('researchCards').innerHTML=research.map((q,i)=>{let key=q[0];return `<button class="buy" onclick="buyResearch(${i})" ${s.core<researchCost(i)?'disabled':''}><span><b>${q[1]}</b><small>${q[2]}<br>Current: ${r[key]}</small></span><strong>${fmt(researchCost(i))} C</strong></button>`}).join('');
+const missions=[['spin','SPIN 10 TIMES',s.totalSpins,10,50],['work','WORK 25 TIMES',s.totalWork,25,100],['energy','REACH 1M ENERGY',s.totalEarned,1e6,500],['jackpot','HIT 3 JACKPOTS',s.jackpots,3,1000]];$('missionList').innerHTML=missions.map(m=>{let done=s.missions[m[0]]||m[2]>=m[3];if(done)s.missions[m[0]]=1;let p=Math.min(100,m[2]/m[3]*100);return `<div class="mission ${done?'done':''}"><div><b>${m[1]}</b><small>${fmt(m[2])} / ${fmt(m[3])}</small><div class="progress"><i style="width:${p}%"></i></div></div><span class="reward">${done?'✓':'+'+fmt(m[4])}</span></div>`}).join('');
+const ach=[['FIRST','First Spin',s.totalSpins>=1],['WORKER','100 Works',s.totalWork>=100],['RICH','1 Billion Total',s.totalEarned>=1e9],['CORE','First Core',s.core>=1],['LUCKY','5 Jackpots',s.jackpots>=5]];$('achievementList').innerHTML=ach.map(a=>`<div class="achievement ${a[2]?'done':''}"><div><b>${a[1]}</b><small>${a[2]?'Unlocked':'Locked'}</small></div><span class="check">${a[2]?'✓':'?'}</span></div>`).join('');
+if(s.eventMult>1){$('eventBox').innerHTML=`<b>${s.eventName} ×${s.eventMult}</b><span>All production is boosted while the event is active.</span>`;$('eventBox').classList.add('flash');$('eventTimer').textContent=Math.max(0,Math.ceil((s.eventUntil-Date.now())/1000))+'s'}else{$('eventBox').innerHTML='<b>Nothing unusual detected.</b><span>Events appear periodically and can massively boost production.</span>';$('eventTimer').textContent='READY'}
+save();}
+function spawnMission(type){}
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));t.classList.add('active');$(t.dataset.tab).classList.add('active')});
+$('spinBtn').onclick=spin;$('workBtn').onclick=work;$('resetBtn').onclick=()=>{if(confirm('ゲームデータを完全にリセットしますか？')){s=Object.assign({},defaults);r={corePower:0,event:0,critical:0,overdrive:0};s.research=r;save();render();toast('RESET COMPLETE')}};
+let last=Date.now();setInterval(()=>{let now=Date.now(),dt=Math.min(10,(now-last)/1000);last=now;eventTick();let passive=income()*researchMult()*dt;if(passive>0){gain(passive);floatText('+'+fmt(passive),innerWidth-130,innerHeight-110)}render()},1000);
+// Offline progress, capped to 8 hours.
+(()=>{let away=Math.min(28800,Math.max(0,(Date.now()-(s.last||Date.now()))/1000));if(away>10&&s.auto>0){let amount=income()*researchMult()*away;gain(amount);toast('OFFLINE +'+fmt(amount))}})();
 render();
